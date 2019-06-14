@@ -1,4 +1,5 @@
 from .icom import IcomXcvr
+from .radio_registry import register_radio
 from .rigcap import *
 
 from copy import deepcopy
@@ -9,10 +10,13 @@ class IC910(IcomXcvr):
     def rig_name():
         return 'Icom IC-910'
 
-    @staticmethod
-    def capabilities(itu_region):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._itu_region = kwargs['itu_region']
+
+    def capabilities(self):
         # TODO support other itu regions
-        caps = RigCapabilities(IC910.rig_name(), itu_region)
+        caps = RigCapabilities(IC910.rig_name(), self._itu_region)
 
         rband_2m = Band()
         rband_2m.set_freq(136000000, 174000000)
@@ -20,8 +24,8 @@ class IC910(IcomXcvr):
         rband_2m.add_mode(Mode.LSB)
         rband_2m.add_mode(Mode.USB)
         rband_2m.add_mode(Mode.FM)
-        rband_2m.add_vfo(VFO.VFO_A)
-        rband_2m.add_vfo(VFO.VFO_B)
+        rband_2m.add_vfo(VFO.VFOA)
+        rband_2m.add_vfo(VFO.VFOB)
         rband_2m.add_vfo(VFO.SUB)
         rband_2m.add_vfo(VFO.MAIN)
         rband_2m.add_vfo(VFO.MEM)
@@ -104,4 +108,8 @@ class IC910(IcomXcvr):
         caps.add_level(Level.STRENGTH, setit=False)
 
         return caps
+
+
+register_radio('IC-910', IC910)
+register_radio(IC910.rig_name(), IC910)
 

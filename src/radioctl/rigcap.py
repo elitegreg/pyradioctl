@@ -22,13 +22,13 @@ Level = IntFlag('Level', 'PREAMP ATT VOXDELAY AF RF SQL IF APF NR '
                 'NOTCHF_RAW MONITOR_GAIN NB')
 
 class VFO(IntFlag):
-    VFO_A = auto()
-    VFO_B = auto()
-    VFO_C = auto()
-    SUB   = (1<<25)
-    MAIN  = (1<<26)
-    VFO   = (1<<27)
-    MEM   = (1<<28)
+    VFOA = auto()
+    VFOB = auto()
+    VFOC = auto()
+    SUB  = (1<<25)
+    MAIN = (1<<26)
+    VFO  = (1<<27)
+    MEM  = (1<<28)
 
 Antenna = IntFlag('Antenna', 'ANT_1 ANT_2 ANT_3 ANT_4 ANT_5')
 

@@ -36,25 +36,27 @@ class LogLevel(enum.Enum):
     def __ge__(self, rhs):
         return self.__comparison__(rhs, op=operator.ge)
 
-    def __iadd__(self, rhs):
-        self.value = self.value + rhs
-        return self
-
-    def __add__(self, rhs):
-        return LogLevel(self.value + rhs)
-
-    def __isub__(self, rhs):
-        self.value = self.value - rhs
-        return self
-
-    def __sub__(self, rhs):
-        return LogLevel(self.value - rhs)
-
     def __repr__(self):
         return 'LogLevel.{}={}'.format(self.name, self.value)
 
     def __str__(self):
         return self.name
+
+
+def log_level_from_string(s):
+    if s.upper() == 'FATAL':
+        return LogLevel.FATAL
+    if s.upper() == 'ERROR':
+        return LogLevel.ERROR
+    if s.upper() == 'WARN':
+        return LogLevel.WARN
+    if s.upper() == 'INFO':
+        return LogLevel.INFO
+    if s.upper() == 'DEBUG':
+        return LogLevel.DEBUG
+    if s.upper() == 'TRACE':
+        return LogLevel.TRACE
+    raise RuntimeError('Invalid log level')
 
 
 _log_file = sys.stdout

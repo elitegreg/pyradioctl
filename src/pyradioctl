@@ -1,24 +1,31 @@
 #!/usr/bin/env python3
 
 from radioctl.icom import IcomXcvr
+from radioctl.radio_registry import radio_choices, radio_factory
 from radioctl.server import Server
 from radioctl.utils import logging
-from radioctl.ic910 import IC910
 
 import argparse
 import asyncio
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('-p', '--serial-port', required=True)
+    parser.add_argument('-b', '--baudrate', type=int, default=9600)
+    parser.add_argument('-r', '--radio', choices=radio_choices(), required=True)
+    parser.add_argument('-t', '--tcp-port', type=int, default=4532)
+    parser.add_argument('--default-itu-region', type=int, choices=(1, 2, 3), default=2)
+    parser.add_argument('--log-level', type=logging.log_level_from_string, default=logging.INFO)
+    parser.add_argument('--tcp-bind', default='127.0.0.1')
     args = parser.parse_args()
- 
-    logging.getLogger('default').setLevel(logging.LogLevel.DEBUG)
-    #server = Server()
-    #loop = asyncio.get_event_loop()
-    #loop.create_task(server.start())
-    #loop.run_forever()
-    #ic = IcomXcvr('/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller-if00-port0', 19200)
-    #loop.create_task(ic.open())
-    #loop.create_task(ic.writecmd(0x00))
-    #loop.run_forever()
-    print(IC910.capabilities(1).format_for_rigctl())
+
+    logging.getLogger('default').setLevel(args.log_level)
+
+    rig = radio_factory(args.radio)(args.serial_port, args.baudrate, itu_region=args.default_itu_region)
+
+    server = Server(rig)
+    loop = asyncio.get_event_loop()
+    loop.create_task(rig.open())
+    loop.create_task(server.start(args.tcp_bind, args.tcp_port))
+    loop.run_forever()
+
