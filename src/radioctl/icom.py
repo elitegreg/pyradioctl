@@ -1,11 +1,9 @@
 import asyncio
 import functools
-import serial
 
 from struct import Struct
 
 from .utils import asyncio_serial
-from .utils import logging
 
 from .bcd import bcd_to_integer, integer_to_bcd
 from .rigcap import VFO
