@@ -1,4 +1,5 @@
 from .hamlib.formatters import CapabilitiesFormatter
+from .ptt import PTT
 from .vfos import VFO
 
 import asyncio
@@ -67,6 +68,7 @@ _cmd_map = {
     '2' : 'power2mW',
     '4' : 'mW2power',
     'w' : 'send_cmd',
+    'q' : 'quit',
 }
 
 
@@ -81,7 +83,7 @@ _cmd_args = {
     'get_rit' : 0,
     'set_xit' : 0,
     'get_xit' : 0,
-    'set_ptt' : 0,
+    'set_ptt' : 1,
     'get_ptt' : 0,
     'get_dcd' : 0,
     'set_rptr_shift' : 0,
@@ -96,11 +98,11 @@ _cmd_args = {
     'get_ctcss_sql' : 0,
     'set_dcs_sql' : 0,
     'get_dcs_sql' : 0,
-    'set_split_freq' : 0,
+    'set_split_freq' : 1,
     'get_split_freq' : 0,
-    'set_split_mode' : 0,
+    'set_split_mode' : 2,
     'get_split_mode' : 0,
-    'set_split_vfo' : 0,
+    'set_split_vfo' : 2,
     'get_split_vfo' : 0,
     'set_ts' : 0,
     'get_ts' : 0,
@@ -165,6 +167,7 @@ def parse_command(cmdline):
 class Session:
     def __init__(self, rig, stream_reader, stream_writer):
         self._rig = rig
+        self._running = False
         self._stream_reader = stream_reader
         self._stream_writer = stream_writer
 
@@ -180,9 +183,13 @@ class Session:
     def rigstate(self):
         return self._rig.state
 
+    def _send(self, msg):
+        self._stream_writer.write(msg.encode())
+
     async def run(self):
         logging.debug('New session')
-        while True:
+        self._running = True
+        while self._running:
             line = await self._stream_reader.readline()
             if not line:
                 break
@@ -193,7 +200,6 @@ class Session:
                 logging.exception('Failed decoding while reading from rigctld')
                 continue
 
-
             logging.debug('Command(s) received: %s', line)
 
             for cmd in parse_command(line):
@@ -201,75 +207,108 @@ class Session:
                     logging.info('Dispatch command: %s', cmd)
                     cmd_func = getattr(self, 'cmd_{}'.format(cmd[0]), None)
                     if cmd_func:
-                        await cmd_func(*cmd)
+                        await cmd_func(*cmd[1:])
                     else:
                         raise NotImplementedError
 
                     if cmd[0].startswith('set'):
-                        self._stream_writer.write(b'RPRT 0\n')
+                        self._send('RPRT 0\n')
                 except Exception:
                     logging.exception('Command Error:')
-                    self._stream_writer.write(b'RPRT -1\n')
+                    self._send('RPRT -1\n')
 
         logging.debug('Disconnect')
 
-    async def cmd_dump_state(self, cmd):
+    async def cmd_quit(self):
+        self._running = False
+
+    async def cmd_chk_vfo(self):
+        self._send('CHKVFO 0\n')
+
+    async def cmd_dump_state(self):
         caps = CapabilitiesFormatter(self._rig.capabilities)
-        self._stream_writer.write(str(caps).encode())
+        self._send(str(caps))
 
-    async def cmd_get_freq(self, cmd):
-        state = self.rigstate
-        freq = state.getvfo(state.rxvfo)
-        self._stream_writer.write('{:d}\n'.format(freq).encode())
+    async def cmd_get_freq(self):
+        freq = self.rigstate.activefreq
+        self._send('{:d}\n'.format(freq))
 
-    async def cmd_set_freq(self, cmd, freq):
+    async def cmd_set_freq(self, freq):
         freq = int(float(freq))
-        self.rigproto.set_rxfreq(freq)
+        self.rigproto.set_activefreq(freq)
 
-    async def cmd_get_mode(self, cmd):
-        state = self.rigstate
-        mode = str(state.rxmode)
-        self._stream_writer.write(f'{mode}\n0\n'.encode())
+    async def cmd_get_mode(self):
+        mode = str(self.rigstate.activemode)
+        self._send(f'{mode}\n0\n')
 
-    async def cmd_set_mode(self, cmd, mode, passband):
+    async def cmd_set_mode(self, mode, passband):
         if mode == '?':
-            rxfreq = self.rigstate.rxfreq
-            modes = self.rigcaps.modes_for(rxfreq)
+            activefreq = self.rigstate.activefreq
+            modes = self.rigcaps.modes_for(activefreq)
             modes = ' '.join((str(mode) for mode in modes))
-            self._stream_writer.write(f'{modes}\n'.encode())
+            self._send(f'{modes}\n')
         else:
             passband = int(passband)
-            self.rigproto.set_rxmode(mode, passband)
+            self.rigproto.set_activemode(mode, passband)
 
-    #async def cmd_get_split_freq(self, cmd):
-        #freq = await self.rigproto.get_tx_vfo_freq()
-        #self._stream_writer.write('{:d}\n'.format(freq).encode())
+    async def cmd_get_split_freq(self):
+        freq = self.rigstate.splitfreq
+        self._send(f'{freq:d}\n')
 
-    #async def cmd_set_split_freq(self, cmd, freq):
-        #freq = int(float(freq))
-        #await self.rigproto.set_tx_vfo_freq(freq)
+    async def cmd_set_split_freq(self, freq):
+        freq = int(float(freq))
+        self.rigproto.set_splitfreq(freq)
 
-    #async def cmd_set_split_vfo(self, cmd, onoff, vfo):
-        #vfoflag = getattr(VFO, vfo.decode().upper())
-        #await self.rigproto.set_tx_vfo(onoff == b'1', vfoflag)
+    async def cmd_get_split_mode(self):
+        mode = str(self.rigstate.splitmode)
+        self._send(f'{mode}\n0\n')
 
-    async def cmd_get_vfo(self, cmd):
-        state = self.rigstate
-        vfo = str(state.rxvfo)
-        self._stream_writer.write(f'{vfo}\n'.encode())
+    async def cmd_set_split_mode(self, mode, passband):
+        if mode == '?':
+            splitfreq = self.rigstate.splitfreq
+            modes = self.rigcaps.modes_for(splitfreq)
+            modes = ' '.join((str(mode) for mode in modes))
+            self._send(f'{modes}\n')
+        else:
+            passband = int(passband)
+            self.rigproto.set_splitmode(mode, passband)
 
-    async def cmd_set_vfo(self, cmd, vfo):
+    async def cmd_get_split_vfo(self):
+        vfo = str(self.rigstate.splitvfo)
+        self._send(f'{vfo}\n')
+
+    async def cmd_set_split_vfo(self, onoff, vfo):
         vfoflag = getattr(VFO, vfo.upper())
-        self.rigproto.set_rxvfo(vfoflag)
+        self.rigproto.set_split(onoff != b'0', vfoflag)
 
-    async def cmd_send_morse(self, cmd, buf):
+    async def cmd_get_vfo(self):
+        state = self.rigstate
+        vfo = str(state.activevfo)
+        self._send(f'{vfo}\n')
+
+    async def cmd_set_vfo(self, vfo):
+        vfoflag = getattr(VFO, vfo.upper())
+        self.rigproto.set_activevfo(vfoflag)
+
+    async def cmd_send_morse(self, buf):
         self.rigproto.send_morse(buf)
 
-    async def cmd_cancel_morse(self, cmd):
+    async def cmd_cancel_morse(self):
         self.rigproto.cancel_morse()
 
-    async def cmd_set_powerstat(self, cmd, val):
+    async def cmd_set_powerstat(self, val):
         self.rigproto.set_powerstate(int(val))
+
+    async def cmd_get_ptt(self):
+        txstate = self.rigstate.txstate
+        self._send(f'{txstate.value}\n')                                      
+
+    async def cmd_set_ptt(self, ptt):
+        try:
+            pttflag = getattr(PTT, ptt.upper())
+        except AttributeError:
+            pttflag = PTT(int(ptt))
+        self.rigproto.set_ptt(pttflag)
 
 
 class Server:

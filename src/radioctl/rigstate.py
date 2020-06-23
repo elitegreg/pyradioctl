@@ -1,14 +1,17 @@
+from .ptt import PTT
+from .vfos import VFO
+
 import logging
 
 
 class RigState:
     def __init__(self):
         self._vfos = {}
-        self._rxvfo = None
-        self._txvfo = None
+        self._activevfo = None
         self._vfomode = None
-        self._rxmode = None
-        self._txmode = None
+        self._activemode = None
+        self._splitmode = None
+        self._txstate = PTT.RX
 
     @property
     def capabilities(self):
@@ -22,21 +25,21 @@ class RigState:
         self._vfos[vfo] = freq
 
     @property
-    def rxfreq(self):
-        return self.getVFO(self.rxvfo)
+    def activefreq(self):
+        return self.getvfo(self.activevfo)
 
-    @rxfreq.setter
-    def rxfreq(self, freq):
-        return self.setVFO(self.rxvfo)
+    @activefreq.setter
+    def activefreq(self, freq):
+        return self.setvfo(self.activevfo)
 
     @property
-    def rxvfo(self):
-        return self._rxvfo
+    def activevfo(self):
+        return self._activevfo
 
-    @rxvfo.setter
-    def rxvfo(self, vfo):
-        logging.debug('Setting rxvfo to %s', vfo)
-        self._rxvfo = vfo
+    @activevfo.setter
+    def activevfo(self, vfo):
+        logging.debug('Setting activevfo to %s', vfo)
+        self._activevfo = vfo
 
     @property
     def vfomode(self):
@@ -48,36 +51,40 @@ class RigState:
         self._vfomode = mode
 
     @property
-    def txfreq(self):
-        return self.getVFO(self.txvfo)
+    def splitfreq(self):
+        return self.getvfo(self.splitvfo)
 
-    @txfreq.setter
-    def txfreq(self, freq):
-        return self.setVFO(self.txvfo)
-
-    @property
-    def txvfo(self):
-        return self._txvfo
-
-    @txvfo.setter
-    def txvfo(self, vfo):
-        logging.debug('Setting txvfo to %s', vfo)
-        self._txvfo = vfo
+    @splitfreq.setter
+    def splitfreq(self, freq):
+        return self.setvfo(self.splitvfo)
 
     @property
-    def rxmode(self):
-        return self._rxmode
-
-    @rxmode.setter
-    def rxmode(self, mode):
-        logging.debug('Setting rxmode to %s', mode)
-        self._rxmode = mode
+    def splitvfo(self):
+        return VFO.VFOB if self._activevfo == VFO.VFOA else VFO.VFOA
 
     @property
-    def txmode(self):
-        return self._rxmode
+    def activemode(self):
+        return self._activemode
 
-    @txmode.setter
-    def txmode(self, mode):
-        logging.debug('Setting txmode to %s', mode)
-        self._txmode = mode
+    @activemode.setter
+    def activemode(self, mode):
+        logging.debug('Setting activemode to %s', mode)
+        self._activemode = mode
+
+    @property
+    def splitmode(self):
+        return self._splitmode
+
+    @splitmode.setter
+    def splitmode(self, mode):
+        logging.debug('Setting splitmode to %s', mode)
+        self._splitmode = mode
+
+    @property
+    def txstate(self):
+        return self._txstate
+
+    @txstate.setter
+    def txstate(self, state):
+        logging.debug('Setting txstate to %s', state)
+        self._txstate = state
