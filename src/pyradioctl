@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from radioctl.cwdaemon import CWDaemonListener
 from radioctl.radio_registry import radio_choices, radio_factory
 from radioctl.server import Server
 
@@ -22,6 +23,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--baudrate', type=int, default=9600)
     parser.add_argument('-r', '--radio', choices=radio_choices(), required=True)
     parser.add_argument('-t', '--tcp-port', type=int, default=4532)
+    parser.add_argument('--cw-daemon-port', type=int)
     parser.add_argument('--default-itu-region', type=int, choices=(1, 2, 3), default=2)
     parser.add_argument('--log-level', choices='CRITICAL ERROR WARNING INFO DEBUG'.split(), default='INFO')
     parser.add_argument('--tcp-bind', default='127.0.0.1')
@@ -35,5 +37,10 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     rig.open_serial(loop, args.serial_port, args.baudrate)
     loop.create_task(server.start(args.tcp_bind, args.tcp_port))
+
+    if args.cw_daemon_port:
+        cwdaemon = CWDaemonListener()
+        loop.create_task(cwdaemon.start(rig.protocol, loop, args.tcp_bind, args.cw_daemon_port))
+
     loop.run_forever()
 

@@ -245,3 +245,11 @@ class KenwoodProtocol:
         if self._morse_sender_task:
             self._morse_sender_task.cancel()
         self._send('KY0;')
+
+    def morse_speed(self, speed):
+        speed = int(speed)
+        if speed > 60: # TODO rig specific
+            speed = 60
+        elif speed < 4:
+            speed = 4
+        self._send(f'KS{speed:03d};')

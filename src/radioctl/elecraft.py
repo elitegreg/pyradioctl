@@ -250,3 +250,11 @@ class ElecraftProtocol:
         if self._morse_sender_task:
             self._morse_sender_task.cancel()
         self._send('RX;')
+
+    def morse_speed(self, speed):
+        speed = int(speed)
+        if speed > 50: # TODO rig specific
+            speed = 50
+        elif speed < 8:
+            speed = 8
+        self._send(f'KS{speed:03d};')

@@ -126,6 +126,7 @@ _cmd_args = {
     'reset' : 0,
     'send_morse' : 1,
     'cancel_morse' : 0,
+    'morse_speed' : 1,
     'set_powerstat' : 1,
     'get_powerstat' : 0,
     'send_dtmf' : 0,
@@ -204,7 +205,7 @@ class Session:
 
             for cmd in parse_command(line):
                 try:
-                    logging.info('Dispatch command: %s', cmd)
+                    logging.debug('Dispatch command: %s', cmd)
                     cmd_func = getattr(self, 'cmd_{}'.format(cmd[0]), None)
                     if cmd_func:
                         await cmd_func(*cmd[1:])
@@ -295,6 +296,9 @@ class Session:
 
     async def cmd_cancel_morse(self):
         self.rigproto.cancel_morse()
+
+    async def cmd_morse_speed(self, speed):
+        self.rigproto.morse_speed(speed)
 
     async def cmd_set_powerstat(self, val):
         self.rigproto.set_powerstate(int(val))
