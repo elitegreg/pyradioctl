@@ -53,11 +53,11 @@ class CWDaemonListenerProtocol(asyncio.Protocol):
         self._data_reply = cmd + message
 
     def set_keying_speed(self, cmd, message):
-        self._hamlib_protocol.morse_speed(message)
+        self._hamlib_protocol.morse_speed(message.rstrip('\x00'))
 
     def send_cw(self, message):
         logging.info('Sending: %s', message)
-        self._hamlib_protocol.send_morse(message.replace('~', ' '))
+        self._hamlib_protocol.send_morse(message.replace('\x00', '').replace('~', ' '))
 
 
 class CWDaemonListener:

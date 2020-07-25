@@ -127,7 +127,7 @@ class KenwoodProtocol:
                 buf = self._morse_buf.pop(0)
                 self._send(f'KY {buf:24s};')
                 await self._writer.drain()
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.1)
         except asyncio.CancelledError:
             pass
         logging.debug('Morse Sender Complete')
@@ -235,7 +235,10 @@ class KenwoodProtocol:
 
     def send_morse(self, buf):
         while len(buf) > 0:
-            self._morse_buf.append(buf[0:24])
+            if len(self._morse_buf) > 0 and (len(self._morse_buf[-1]) + len(buf)) <= 24:
+                self._morse_buf[-1] += buf
+            else:
+                self._morse_buf.append(buf[0:24])
             buf = buf[24:]
         if not self._morse_sender_task or self._morse_sender_task.done():
             self._morse_sender_task = \
@@ -252,4 +255,4 @@ class KenwoodProtocol:
             speed = 60
         elif speed < 4:
             speed = 4
-        self._send(f'KS{speed:03d};')
+        0.self._send(f'KS{speed:03d};')
