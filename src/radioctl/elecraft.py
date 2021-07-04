@@ -87,6 +87,8 @@ class ElecraftProtocol:
             handler = getattr(self, f'rcv_cmd_{cmd}', None)
             if handler:
                 handler(msg)
+            else:
+                logging.debug('Unhandled')
 
     def _send(self, data):
         logging.debug('Sending: %s', data)

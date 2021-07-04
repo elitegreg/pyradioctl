@@ -14,9 +14,9 @@ class BandFormatter:
     def __str__(self):
         # TODO f-string
         return '{:d} {:d} 0x{:x} {:d} {:d} 0x{:x} 0x{:x}'.format(
-            self.freq_lower_bound, self.freq_upper_bound, self.modes,
-            self.low_power, self.high_power, self.vfos,
-            self.antennas)
+            self.freq_lower_bound, self.freq_upper_bound, self.modes.value,
+            self.low_power, self.high_power, self.vfos.value,
+            self.antennas.value)
     
 
 class CapabilitiesFormatter:
@@ -30,8 +30,8 @@ class CapabilitiesFormatter:
         # TODO remove private member access
         rxbands = '\n'.join((str(BandFormatter(band)) for band in self._rx_bands))
         txbands = '\n'.join((str(BandFormatter(band)) for band in self._tx_bands))
-        tuning_steps = '\n'.join('0x{:x} {:d}'.format(ts[0], ts[1]) for ts in self._tuning_steps)
-        filters = '\n'.join('0x{:x} {:d}'.format(f[0], f[1]) for f in self._filters)
+        tuning_steps = '\n'.join('0x{:x} {:d}'.format(ts[0].value, ts[1]) for ts in self._tuning_steps)
+        filters = '\n'.join('0x{:x} {:d}'.format(f[0].value, f[1]) for f in self._filters)
         preamps = ' '.join((str(x) for x in self._preamps))
         attenuators = ' '.join((str(x) for x in self._attenuators))
         # TODO f-string

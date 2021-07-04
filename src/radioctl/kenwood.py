@@ -255,4 +255,4 @@ class KenwoodProtocol:
             speed = 60
         elif speed < 4:
             speed = 4
-        0.self._send(f'KS{speed:03d};')
+        self._send(f'KS{speed:03d};')

@@ -1,3 +1,5 @@
+from .ptt import PTT
+
 import asyncio
 import logging
 
@@ -12,7 +14,7 @@ class CWDaemonListenerProtocol(asyncio.Protocol):
         '4' : 'abort_message',
         '5' : 'not_implemented', #'exit'
         '7' : 'not_implemented', #'set_weighting',
-        'a' : 'not_implemented', #'ptt_keying',
+        'a' : 'set_ptt', #'ptt_keying',
         'b' : 'not_implemented', #'ssb_signal_from',
         'c' : 'not_implemented', #'tune_x_seconds',
         'h' : 'set_data_reply',
@@ -54,6 +56,14 @@ class CWDaemonListenerProtocol(asyncio.Protocol):
 
     def set_keying_speed(self, cmd, message):
         self._hamlib_protocol.morse_speed(message.rstrip('\x00'))
+
+    def set_ptt(self, cmd, message):
+        if len(message) == 0:
+            return
+        elif message.strip()[0] == '0':
+            self._hamlib_protocol.set_ptt(PTT.RX)
+        else:
+            self._hamlib_protocol.set_ptt(PTT.TX)
 
     def send_cw(self, message):
         logging.info('Sending: %s', message)
