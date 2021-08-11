@@ -1,5 +1,3 @@
-from .ptt import PTT
-
 import asyncio
 import logging
 
@@ -61,9 +59,9 @@ class CWDaemonListenerProtocol(asyncio.Protocol):
         if len(message) == 0:
             return
         elif message.strip()[0] == '0':
-            self._hamlib_protocol.set_ptt(PTT.RX)
+            self._hamlib_protocol.set_ptt(0)
         else:
-            self._hamlib_protocol.set_ptt(PTT.TX)
+            self._hamlib_protocol.set_ptt(1)
 
     def send_cw(self, message):
         logging.info('Sending: %s', message)

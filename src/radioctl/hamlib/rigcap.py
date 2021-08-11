@@ -1,13 +1,7 @@
-from .antennas import Antenna
-from .modes import Mode
-from .rigfunctions import Function
-from .riglevels import Level
-
-
 class RigCapabilities:
-    def __init__(self, model, itu_region):
+    def __init__(self, model, aliases=None):
         self._model = model
-        self._itu_region = itu_region
+        self._aliases = aliases if aliases else []
         self._rx_bands = []
         self._tx_bands = []
         self._tuning_steps = []
