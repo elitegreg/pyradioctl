@@ -1,4 +1,4 @@
-from .utils.signal_slots import *
+from .utils.signal_slots import Signal
 
 from enum import auto, IntEnum
 
@@ -25,11 +25,16 @@ class MsgType(IntEnum):
     TRANSMIT_SET = auto()
     TRANSMIT_QUERY = auto()
     TRANSMIT_RESULT = auto()
+    KEYER_SPEED_SET = auto()
+    KEYER_SPEED_QUERY = auto()
+    KEYER_SPEED_RESULT = auto()
+    KEYER_BUFFER_AVAILABLE = auto()
+    KEYER_BUFFER_FULL = auto()
 
 
 class MsgBus:
     def __init__(self):
-        self._signals = collections.defaultdict(SignalSlots)
+        self._signals = collections.defaultdict(Signal)
 
-    def __index__(self, key):
+    def __getitem__(self, key):
         return self._signals[key]

@@ -1,21 +1,31 @@
-from .rigcap import RigCapabilities
-from .rigstate import RigState
+from .capabilities import Capabilities
+from .model import Model
 from .utils import asyncio_serial
 
 
 class Rig:
-    def __init__(self, model, itu_region, rig_protocol_factory):
-        self._rigcap = RigCapabilities(model, itu_region)
-        self._rigstate = RigState()
-        self._protocol = rig_protocol_factory(self._rigstate)
+    def __init__(self, capabilities, protocol):
+        self._rigcap = capabilities
+        self._model = Model()
+        self._protocol = protocol
+        self._msgbus = protocol.msgbus
+
+        for vfo in capabilities.vfos:
+            self._model.add_vfo(vfo)
+
+        self._model.register_signals(self.msgbus)
 
     @property
     def capabilities(self):
         return self._rigcap
 
     @property
-    def state(self):
-        return self._rigstate
+    def model(self):
+        return self._model
+
+    @property
+    def msgbus(self):
+        return self._msgbus
 
     @property
     def protocol(self):

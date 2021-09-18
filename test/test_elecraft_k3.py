@@ -1,11 +1,17 @@
 from radioctl.capabilities import *
 from radioctl.hamlib.formatters import *
+from radioctl.model import *
+from radioctl.msgbus import *
+from radioctl.protocol.kenwood.protocol import Protocol as KenwoodProtocol
+from radioctl.radio_registry import load_all
+from radioctl.rigfactory import create_rig
 
 import os
 import unittest
 import yaml
 
 RIGSDB = os.getenv('RIGSDB')
+load_all()
 
 class ElecraftK3Capabilities(unittest.TestCase):
     def setUp(self):
@@ -58,3 +64,15 @@ class ElecraftK3Capabilities(unittest.TestCase):
 0x0
 '''
         self.assertEquals(expected, str(f))
+
+
+class ElecraftK3Rig(unittest.TestCase):
+    def test_load_rig(self):
+        cfg = {}
+        rig = create_rig('K3', cfg, itu_region=2)
+        self.assertTrue(rig)
+        self.assertTrue(isinstance(rig.capabilities, Capabilities))
+        self.assertTrue(isinstance(rig.model, Model))
+        self.assertTrue(isinstance(rig.msgbus, MsgBus))
+        self.assertTrue(isinstance(rig.protocol, KenwoodProtocol))
+

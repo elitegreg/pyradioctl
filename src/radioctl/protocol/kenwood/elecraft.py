@@ -28,10 +28,10 @@ class ElecraftDialect:
         pass
 
     def mode_from_rig(self, rigmode):
-        return self.MODE_MAP_FROM(rigmode)
+        return self.MODE_MAP_FROM[rigmode]
 
     def mode_to_rig(self, mode):
-        return self.MODE_MAP_TO(mode)
+        return self.MODE_MAP_TO[mode]
 
     @property
     def startup_commands(self):

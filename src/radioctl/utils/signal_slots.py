@@ -56,7 +56,7 @@ class Signal:
                         del self.slots[i]
                         return
                 else:
-                    if wm.c().hostedFunction == slot:
+                    if wm.c().func == slot:
                         del self.slots[i]
                         return
         except:
@@ -68,21 +68,21 @@ class Signal:
 
 
 class _WeakMethod_FuncHost:
-    __slots__ = ['hostedFunction']
+    __slots__ = ['f', '__weakref__']
 
     def __init__(self, func):
-        self.hostedFunction = func
+        self.f = func
 
     def func(self, *args, **kwargs):
-        self.hostedFunction(*args, **kwargs)
+        self.f(*args, **kwargs)
 
 
 class _WeakMethod:
     __slots__ = ['f', 'c']
 
     def __init__(self, f):
-        self.f = f.im_func
-        self.c = ref(f.im_self)
+        self.f = f.__func__
+        self.c = ref(f.__self__)
 
     def __call__(self, *args, **kwargs):
         if self.c() == None :

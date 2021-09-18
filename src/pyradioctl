@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 
 from radioctl.bridge.cwdaemon import CWDaemonListener
-from radioctl.radio_registry import load_all, radio_choices, radio_definition
 from radioctl.hamlib.server import Server
+from radioctl.radio_registry import load_all, radio_choices
+from radioctl.rigfactory import create_rig
+from radioctl.utils.logging import configure_logging
 
 import argparse
 import asyncio
 import logging
-
-
-def configure_logging(log_level):
-    logging.basicConfig(
-        format='{asctime}.{msecs:.0f} [{levelname}] - {message}',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        style='{',
-        level=log_level)
 
 
 if __name__ == '__main__':
@@ -33,16 +27,21 @@ if __name__ == '__main__':
 
     configure_logging(args.log_level)
 
-    #rig = radio_factory(args.radio)(itu_region=args.itu_region)
+    cfg = {}
 
-    #server = Server(rig)
-    #loop = asyncio.get_event_loop()
-    #rig.open_serial(loop, args.serial_port, args.baudrate)
-    #loop.create_task(server.start(args.tcp_bind, args.tcp_port))
+    rig = create_rig(args.radio, cfg, itu_region=args.itu_region)
+
+    server = Server(rig)
+    loop = asyncio.get_event_loop()
+    rig.open_serial(loop, args.serial_port, args.baudrate)
+    loop.create_task(server.start(args.tcp_bind, args.tcp_port))
 
     #if args.cw_daemon_port:
     #    cwdaemon = CWDaemonListener()
     #    loop.create_task(cwdaemon.start(rig.protocol, loop, args.tcp_bind, args.cw_daemon_port))
 
-    #loop.run_forever()
+    # load the current state
+    rig.model.query_all()
+
+    loop.run_forever()
 

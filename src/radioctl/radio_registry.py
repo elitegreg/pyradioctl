@@ -5,8 +5,8 @@ import os
 
 _radios = dict()
 
-def register_radio(name, factory):
-    _radios[name] = factory
+def register_radio(name, definition):
+    _radios[name] = definition
 
 def radio_definition(name):
     return _radios[name]

@@ -1,9 +1,14 @@
 from .formatters import CapabilitiesFormatter
+from .model_adapter import HamlibModelAdapter
 from .ptt import PTT
 from .vfos import VFO
 
+from radioctl.utils import logging
+
 import asyncio
-import logging
+
+
+_logger = logging.getLogger('rigctld')
 
 
 _cmd_map = {
@@ -167,28 +172,18 @@ def parse_command(cmdline):
 
 class Session:
     def __init__(self, rig, stream_reader, stream_writer):
-        self._rig = rig
+        self._capabilities = rig.capabilities
+        self._model = HamlibModelAdapter(rig.model)
         self._running = False
         self._stream_reader = stream_reader
         self._stream_writer = stream_writer
 
-    @property
-    def rigcap(self):
-        return self._rig.capabilities
-
-    @property
-    def rigproto(self):
-        return self._rig.protocol
-
-    @property
-    def rigstate(self):
-        return self._rig.state
-
     def _send(self, msg):
+        _logger.debug('Sending [{}]', msg.rstrip('\n'))
         self._stream_writer.write(msg.encode())
 
     async def run(self):
-        logging.debug('New session')
+        _logger.debug('New session')
         self._running = True
         while self._running:
             line = await self._stream_reader.readline()
@@ -198,14 +193,14 @@ class Session:
             try:
                 line = line.decode('latin_1').strip()
             except:
-                logging.exception('Failed decoding while reading from rigctld')
+                _logger.exception('Failed decoding while reading from rigctld')
                 continue
 
-            logging.debug('Command(s) received: %s', line)
+            _logger.debug('Command(s) received: {}', line)
 
             for cmd in parse_command(line):
                 try:
-                    logging.debug('Dispatch command: %s', cmd)
+                    _logger.debug('Dispatch command: {}', cmd)
                     cmd_func = getattr(self, 'cmd_{}'.format(cmd[0]), None)
                     if cmd_func:
                         await cmd_func(*cmd[1:])
@@ -215,10 +210,10 @@ class Session:
                     if cmd[0].startswith('set'):
                         self._send('RPRT 0\n')
                 except Exception:
-                    logging.exception('Command Error:')
+                    _logger.exception('Command Error:')
                     self._send('RPRT -1\n')
 
-        logging.debug('Disconnect')
+        _logger.debug('Disconnect')
 
     async def cmd_quit(self):
         self._running = False
@@ -227,69 +222,64 @@ class Session:
         self._send('CHKVFO 0\n')
 
     async def cmd_dump_state(self):
-        caps = CapabilitiesFormatter(self._rig.capabilities)
+        caps = CapabilitiesFormatter(self._capabilities)
         self._send(str(caps))
 
     async def cmd_get_freq(self):
-        freq = self.rigstate.activefreq
+        freq = self._model.primary_rx_vfo_frequency
         self._send('{:d}\n'.format(freq))
 
     async def cmd_set_freq(self, freq):
-        freq = int(float(freq))
-        self.rigproto.set_activefreq(freq)
+        self._model.primary_rx_vfo_frequency = int(float(freq))
 
     async def cmd_get_mode(self):
-        mode = str(self.rigstate.activemode)
+        mode = self._model.primary_rx_vfo_mode
         self._send(f'{mode}\n0\n')
 
     async def cmd_set_mode(self, mode, passband):
         if mode == '?':
-            activefreq = self.rigstate.activefreq
-            modes = self.rigcaps.modes_for(activefreq)
+            modes = self.capabilities.modes
             modes = ' '.join((str(mode) for mode in modes))
             self._send(f'{modes}\n')
         else:
             passband = int(passband)
-            self.rigproto.set_activemode(mode, passband)
+            self._model.primary_rx_vfo_mode = mode
+            #TODO passband
 
     async def cmd_get_split_freq(self):
-        freq = self.rigstate.splitfreq
-        self._send(f'{freq:d}\n')
+        freq = self._model.primary_tx_vfo_frequency
+        self._send('{:d}\n'.format(freq))
 
     async def cmd_set_split_freq(self, freq):
-        freq = int(float(freq))
-        self.rigproto.set_splitfreq(freq)
+        self._model.primary_tx_vfo_frequency = int(float(freq))
 
     async def cmd_get_split_mode(self):
-        mode = str(self.rigstate.splitmode)
+        mode = self._model.primary_tx_vfo_mode
         self._send(f'{mode}\n0\n')
 
     async def cmd_set_split_mode(self, mode, passband):
         if mode == '?':
-            splitfreq = self.rigstate.splitfreq
-            modes = self.rigcaps.modes_for(splitfreq)
+            modes = self.capabilities.modes
             modes = ' '.join((str(mode) for mode in modes))
             self._send(f'{modes}\n')
         else:
             passband = int(passband)
-            self.rigproto.set_splitmode(mode, passband)
+            self._model.primary_tx_vfo_mode = mode
+            #TODO passband
 
     async def cmd_get_split_vfo(self):
-        vfo = str(self.rigstate.splitvfo)
+        vfo = self._model.primary_tx_vfo_name
         self._send(f'{vfo}\n')
 
     async def cmd_set_split_vfo(self, onoff, vfo):
-        vfoflag = getattr(VFO, vfo.upper())
-        self.rigproto.set_split(onoff != b'0', vfoflag)
+        self._model.primary_tx_vfo_name = vfo
 
     async def cmd_get_vfo(self):
-        state = self.rigstate
-        vfo = str(state.activevfo)
+        vfo = self._model.primary_rx_vfo_name
         self._send(f'{vfo}\n')
 
     async def cmd_set_vfo(self, vfo):
-        vfoflag = getattr(VFO, vfo.upper())
-        self.rigproto.set_activevfo(vfoflag)
+        self._model.primary_rx_vfo_name = vfo
 
     async def cmd_send_morse(self, buf):
         self.rigproto.send_morse(buf)
@@ -305,7 +295,7 @@ class Session:
 
     async def cmd_get_ptt(self):
         txstate = self.rigstate.txstate
-        self._send(f'{txstate.value}\n')                                      
+        self._send(f'{txstate.value}\n')
 
     async def cmd_set_ptt(self, ptt):
         try:
@@ -320,7 +310,7 @@ class Server:
         self._rig = rig
 
     async def start(self, host='127.0.0.1', port=4532, loop=None):
-        logging.info('TCP server started on %s:%s', host, port)
+        _logger.info('TCP server started on {}:{}', host, port)
         await asyncio.start_server(
             self.handle_new_connection,
             host,

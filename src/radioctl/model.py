@@ -9,6 +9,8 @@ class VFO:
         self._frequency = 0
         self._mode = Mode.CW
         self._queries = []
+        self._freq_set = None
+        self._mode_set = None
 
     def __str__(self):
         return f'VFO-{self._name} {self._frequency} {self._mode}'
@@ -18,7 +20,8 @@ class VFO:
         msgbus[MsgType.VFO_MODE_RESULT].connect(self.__update_mode)
         self._queries.append(msgbus[MsgType.VFO_FREQUENCY_QUERY])
         self._queries.append(msgbus[MsgType.VFO_MODE_QUERY])
-        self._queries.append(msgbus[MsgType.VFO_DATAMODE_QUERY])
+        self._freq_set = msgbus[MsgType.VFO_FREQUENCY_SET]
+        self._mode_set = msgbus[MsgType.VFO_MODE_SET]
 
     def query_all(self):
         for query in self._queries:
@@ -37,12 +40,16 @@ class VFO:
         return self._frequency
 
     @frequency.setter
-    def frequency(self):
-        self.
+    def frequency(self, freq):
+        self._freq_set(self._index, freq)
 
     @property
     def mode(self):
         return self._mode
+
+    @mode.setter
+    def mode(self, mode):
+        self._mode_set(self._index, mode)
 
     def __update_frequency(self, index, frequency):
         if index == self._index:
@@ -60,11 +67,21 @@ class Model:
         self._tx = PTT.RX
         self._tx_signal = None
         self._queries = []
+        self._primary_rx_vfo = 0
+        self._primary_tx_vfo = 0
 
     def register_signals(self, msgbus):
         msgbus[MsgType.TRANSMIT_RESULT].connect(self.__update_tx)
+        msgbus[MsgType.RX_VFO_RESULT].connect(self.__update_rx_vfo)
+        Rsgbus[MsgType.TX_VFO_RESULT].connect(self.__update_tx_vfo)
         self._tx_signal = msgbus[MsgType.TRANSMIT_SET]
+        self._rx_vfo_signal = msgbus[MsgType.RX_VFO_SET]
+        self._tx_vfo_signal = msgbus[MsgType.TX_VFO_SET]
         self._queries.append(msgbus[MsgType.TRANSMIT_QUERY])
+        self._queries.append(msgbus[MsgType.RX_VFO_QUERY])
+        self._queries.append(msgbus[MsgType.TX_VFO_QUERY])
+        for vfo in self._vfos:
+            vfo.register_signals(msgbus)
 
     def query_all(self):
         for query in self._queries:
@@ -84,15 +101,49 @@ class Model:
 
     def get_vfo_by_name(self, name):
         return self._vfos_by_name[name]
-    
+
     @property
     def tx(self):
         return self._tx
 
     @tx.setter
     def tx(self, value):
+        assert(value is not None)
+        assert(self._rx_signal)
         assert(self._tx_signal)
-        self._tx_signal(value)
+        if value:
+            self._tx_signal(value)
+            self._tx = value
+        else:
+            self._rx_signal(value)
+            self._tx = value
+
+    @property
+    def primary_rx_vfo(self):
+        return self._vfos[self._primary_rx_vfo]
+
+    @primary_rx_vfo.setter
+    def primary_rx_vfo(self, value):
+        if type(value) is not int:
+            value = self._vfos_by_name[value].index
+        self._rx_vfo_signal(index=value)
+
+    @property
+    def primary_tx_vfo(self):
+        return self._vfos[self._primary_tx_vfo]
+
+    @primary_tx_vfo.setter
+    def primary_tx_vfo(self, value):
+        if type(value) is not int:
+            value = self._vfos_by_name[value].index
+        self._tx_vfo_signal(index=value)
 
     def __update_tx(self, value):
         self._tx = value
+
+    def __update_rx_vfo(self, value):
+        self._primary_rx_vfo = value
+
+    def __update_tx_vfo(self, value):
+        self._primary_tx_vfo = value
+

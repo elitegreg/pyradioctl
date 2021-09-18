@@ -1,21 +1,23 @@
 from .dialects import create_dialect
 from ..factory import register_protocol
+from ..morse_task import MorseTask
 
 from radioctl.msgbus import MsgType
+from radioctl.utils import logging
 
 import functools
-import logging
 import re
 import weakref
 
-_logger = logging.getLogger('Kenwood Protocol')
+_logger = logging.getLogger('kenwood')
 
 __ALL__ = ['Protocol']
 
 
 class Handler:
     def __init__(self, protocol, handler_cfg):
-        self._send_method = weakref.proxy(protocol._send)
+        # TODO self._send_method = weakref.proxy(protocol._send)
+        self._send_method = protocol._send
         self._cmd = ''
         self._get_cmd = ''
         self._set_cmd = ''
@@ -28,6 +30,8 @@ class Handler:
         match = self._response_re.match(msg)
         if match:
             self._response(match)
+        else:
+            _logger.warn('Could not parse: {}', msg)
 
     def _parse_params(self, handler_cfg):
         if 'get' in handler_cfg:
@@ -36,17 +40,16 @@ class Handler:
             self._set_cmd = handler_cfg['set']
         if 'response' in handler_cfg:
             resp = handler_cfg['response']
-            if resp[2] == '$':
-                self._cmd = resp[0:3]
-            else:
-                self._cmd = resp[0:2]
+            self._cmd = resp[0:2]
+            if resp[2] == '\\' and resp[3] == '$':
+                self._cmd += '$'
             self._response_re = re.compile(resp)
 
     def _response(self, match):
         self._response_signal()
 
-    def _set_value(self, index):
-        self._send_method(self._set_cmd.format(index))
+    def _set_value(self, *args, **kwargs):
+        self._send_method(self._set_cmd)
 
     def _get_value(self):
         self._send_method(self._get_cmd)
@@ -65,18 +68,17 @@ class VfoHandler(Handler):
 
     def _set_frequency(self, index, frequency):
         if index == self._index:
-            self._send_method(self._set_cmd.format(frequency))
+            self._send_method(self._set_cmd.format(freq=frequency))
 
-    def _get_frequency(self, index):
-        if index == self._index:
-            self._send_method(self._get_cmd)
+    def _get_frequency(self):
+        self._send_method(self._get_cmd)
 
 
 class ModeHandler(Handler):
     def __init__(self, protocol, handler_cfg, index):
         super().__init__(protocol, handler_cfg)
         self._index = index
-        self._dialect = protocol.dialect
+        self._dialect = protocol._dialect
         self._response_signal = protocol._msgbus[MsgType.VFO_MODE_RESULT]
         if self._set_cmd:
             protocol._msgbus[MsgType.VFO_MODE_SET].connect(self._set_mode)
@@ -89,16 +91,15 @@ class ModeHandler(Handler):
 
     def _set_mode(self, index, mode):
         if index == self._index:
-            self._send_method(self._set_cmd.format(self._dialect.mode_to_rig(mode)))
+            self._send_method(self._set_cmd.format(mode=self._dialect.mode_to_rig(mode)))
 
-    def _get_mode(self, index):
-        if index == self._index:
-            self._send_method(self._get_cmd)
+    def _get_mode(self):
+        self._send_method(self._get_cmd)
 
 
 class VfoToggleHandler(Handler):
     def __init__(self, set_signal, query_signal, result_signal, protocol, handler_cfg):
-        super().__init__(protocol, item)
+        super().__init__(protocol, handler_cfg)
         self._response_signal = protocol._msgbus[result_signal]
         if self._set_cmd:
             protocol._msgbus[set_signal].connect(self._set_value)
@@ -109,7 +110,7 @@ class VfoToggleHandler(Handler):
         self._response_signal(int(match.group('index')))
 
     def _set_value(self, index):
-        self._send_method(self._set_cmd.format(index))
+        self._send_method(self._set_cmd.format(index=index))
 
 
 RxVfoToggleHandler = functools.partial(VfoToggleHandler,
@@ -125,7 +126,7 @@ TxVfoToggleHandler = functools.partial(VfoToggleHandler,
 
 class ToggleHandler(Handler):
     def __init__(self, set_signal, query_signal, result_signal, protocol, handler_cfg):
-        super().__init__(protocol, item)
+        super().__init__(protocol, handler_cfg)
         self._response_signal = protocol._msgbus[result_signal]
         if self._set_cmd:
             protocol._msgbus[set_signal].connect(self._set_value)
@@ -145,15 +146,44 @@ TxToggleHandler = functools.partial(ToggleHandler,
                                     MsgType.TRANSMIT_RESULT)
 
 
+class KeyerSpeedHandler(Handler):
+    def __init__(self, protocol, handler_cfg):
+        super().__init__(protocol, handler_cfg)
+        self._response_signal = protocol._msgbus[MsgType.KEYER_SPEED_RESULT]
+        protocol._msgbus[MsgType.KEYER_SPEED_SET].connect(self._set_value)
+        protocol._msgbus[MsgType.KEYER_SPEED_QUERY].connect(self._get_value)
+        self._min, self._max = handler_cfg['range'].split('-', 1)
+
+    def _response(self, match):
+        self._response_signal(int(match.group('speed')))
+
+    def _set_value(self, speed):
+        speed = max(speed, self._min)
+        speed = min(speed, self._max)
+        self._send_method(self._set_cmd.format(speed=speed))
+
+
+class CatCWHandler:
+    def __init__(self, protocol, handler_cfg):
+        # TODO self._send_method = weakref.proxy(protocol._send)
+        self._send_method = protocol._send
+        self._cancel_method = functools.partial(self._send_method, handler_cfg['cancel'])
+        l = handler_cfg['length']
+        self._send_cmd = handler_cfg['send']
+
+
 class Protocol:
-    def __init__(self, cfg, msgbus, dialect, rig_def):
+    def __init__(self, dialect, cfg, msgbus, rig_def):
         self._msgbus = msgbus
-        self._state = state
         self._dialect = create_dialect(cfg, dialect)
         self._startup = ''
         self._handlers = {}
         self._no_response_handlers = []
-        self._create_handlers(rig_def['protocol'])
+        self._create_handlers(rig_def['protocol_config'])
+
+    @property
+    def msgbus(self):
+        return self._msgbus
 
     def open(self, loop, reader, writer):
         self._reader = reader
@@ -161,26 +191,29 @@ class Protocol:
         self._send(self._startup)
         if hasattr(self._dialect, "startup_commands"):
             self._send(self._dialect.startup_commands)
-        loop.create_task(self.reader_task(), name='Reader Task')
+        return loop.create_task(self.reader_task(), name='Reader Task')
 
     async def reader_task(self):
         handlers = self._handlers
-        while True:
-            pkt = await self._reader.readuntil(b';')
-            msg = pkt.decode()
-            _logger.debug('Received: {}', msg)
-            if len(msg) < 3:
-                _logger.warn('Message too short: {}', msg)
-                continue
-            if msg[2] == '$':
-                cmd = msg[0:3]
-            else:
-                cmd = msg[0:2]
-            try:
-                handler = handlers[cmd]
-                handler(msg)
-            except KeyError:
-                _logger.debug('No handler for: {}', msg)
+        try:
+            while True:
+                pkt = await self._reader.readuntil(b';')
+                msg = pkt.decode()
+                _logger.debug('Received: {}', msg)
+                if len(msg) < 3:
+                    _logger.warn('Message too short: {}', msg)
+                    continue
+                if msg[2] == '$':
+                    cmd = msg[0:3]
+                else:
+                    cmd = msg[0:2]
+                try:
+                    handler = handlers[cmd]
+                    handler(msg)
+                except KeyError:
+                    _logger.debug('No handler for: {}', msg)
+        except EOFError:
+            _logger.info('Terminating reader task')
 
     def _send(self, data):
         _logger.debug('Sending: {}', data)
@@ -188,15 +221,12 @@ class Protocol:
 
     def _register_handler(self, handler):
         if handler._cmd:
-            self._handlers[handler.cmd] = handler
+            self._handlers[handler._cmd] = handler
         else:
             self._no_response_handlers.append(handler)
 
-    def _create_handlers(self, dialect, protocol_def):
-        handlers = {}
-        no_response_handlers = []
-
-        for (name, item) in protocol_def:
+    def _create_handlers(self, protocol_def):
+        for (name, item) in protocol_def.items():
             if name == 'startup':
                 self._startup = item
                 continue
@@ -214,6 +244,14 @@ class Protocol:
                 handler = RxToggleHandler(self, item)
             elif name == 'tx':
                 handler = TxToggleHandler(self, item)
+            elif name == 'keyer_speed':
+                handler = KeyerSpeedHandler(self, item)
+            elif name == 'cw':
+                mode = item['mode']
+                if mode.lower() == 'cat':
+                    handler = CatCWHandler(self, item)
+                else:
+                    raise RuntimeError(f'Unknown cw handler mode: {mode}')
             else:
                 _logger.info("Handler {} not supported", name)
                 continue
