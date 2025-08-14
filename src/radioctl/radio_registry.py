@@ -28,11 +28,12 @@ def load_all():
     listing = os.listdir(rigsdb)
 
     for rig_item in listing:
-        try:
-            (name, aliases, rig_definition) = \
-                rigloader.load_file(os.path.join(rigsdb, rig_item))
-            register_radio(name, rig_definition)
-            for alias in aliases:
-                register_radio(alias, rig_definition)
-        except Exception as e:
-            logging.exception("Unable to load rig definition: {}", rig_item)
+        if rig_item.endswith('.yaml'):
+            try:
+                (name, aliases, rig_definition) = \
+                    rigloader.load_file(os.path.join(rigsdb, rig_item))
+                register_radio(name, rig_definition)
+                for alias in aliases:
+                    register_radio(alias, rig_definition)
+            except Exception as e:
+                logging.exception("Unable to load rig definition: {}", rig_item)

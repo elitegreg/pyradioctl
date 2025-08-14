@@ -2,6 +2,8 @@ from .hamlib.modes import Mode
 from .hamlib.ptt import PTT
 from .msgbus import MsgBus, MsgType
 
+import logging
+
 class VFO:
     def __init__(self, index, name):
         self._index = index
@@ -25,7 +27,7 @@ class VFO:
 
     def query_all(self):
         for query in self._queries:
-            query()
+            query(index=self._index)
 
     @property
     def index(self):
@@ -73,7 +75,7 @@ class Model:
     def register_signals(self, msgbus):
         msgbus[MsgType.TRANSMIT_RESULT].connect(self.__update_tx)
         msgbus[MsgType.RX_VFO_RESULT].connect(self.__update_rx_vfo)
-        Rsgbus[MsgType.TX_VFO_RESULT].connect(self.__update_tx_vfo)
+        msgbus[MsgType.TX_VFO_RESULT].connect(self.__update_tx_vfo)
         self._tx_signal = msgbus[MsgType.TRANSMIT_SET]
         self._rx_vfo_signal = msgbus[MsgType.RX_VFO_SET]
         self._tx_vfo_signal = msgbus[MsgType.TX_VFO_SET]
@@ -145,5 +147,6 @@ class Model:
         self._primary_rx_vfo = value
 
     def __update_tx_vfo(self, value):
+        logging.debug("__update_tx_vfo")
         self._primary_tx_vfo = value
 

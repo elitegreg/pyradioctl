@@ -70,8 +70,9 @@ class VfoHandler(Handler):
         if index == self._index:
             self._send_method(self._set_cmd.format(freq=frequency))
 
-    def _get_frequency(self):
-        self._send_method(self._get_cmd)
+    def _get_frequency(self, index):
+        if index == self._index:
+            self._send_method(self._get_cmd)
 
 
 class ModeHandler(Handler):
@@ -93,8 +94,9 @@ class ModeHandler(Handler):
         if index == self._index:
             self._send_method(self._set_cmd.format(mode=self._dialect.mode_to_rig(mode)))
 
-    def _get_mode(self):
-        self._send_method(self._get_cmd)
+    def _get_mode(self, index):
+        if index == self._index:
+            self._send_method(self._get_cmd)
 
 
 class VfoToggleHandler(Handler):
@@ -168,7 +170,6 @@ class CatCWHandler:
         # TODO self._send_method = weakref.proxy(protocol._send)
         self._send_method = protocol._send
         self._cancel_method = functools.partial(self._send_method, handler_cfg['cancel'])
-        l = handler_cfg['length']
         self._send_cmd = handler_cfg['send']
 
 
@@ -249,7 +250,8 @@ class Protocol:
             elif name == 'cw':
                 mode = item['mode']
                 if mode.lower() == 'cat':
-                    handler = CatCWHandler(self, item)
+                    pass
+                    #handler = CatCWHandler(self, item)
                 else:
                     raise RuntimeError(f'Unknown cw handler mode: {mode}')
             else:

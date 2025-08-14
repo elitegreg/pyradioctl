@@ -1,70 +1,78 @@
 name: 'Elecraft K3'
-aliases: [ 'K3', 'K3s' ]
-protocol: 'Kenwood'
+aliases:
+    - K3
+    - K3s
+protocol: Kenwood
 dialect: 'Elecraft'
-modes: [ 'AM', 'CW', 'CWR', 'FM', 'LSB', 'PKTLSB', 'PKTUSB', 'RTTY', 'RTTYR', 'USB' ]
+modes: 
+    - AM
+    - CW
+    - CWR
+    - FM
+    - LSB
+    - PKTLSB
+    - PKTUSB
+    - RTTY
+    - RTTYR
+    - USB
 vfos: 'A/B'
-rx_bands: [
-    {
-        range: '310000-32000000',
-    },
-    {
-        range: '44000000-54000000',
-    }]
-tx_bands: [ '160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m']
+rx_bands:
+    - range: '310000-32000000'
+    - range: '44000000-54000000'
+tx_bands: 
+    - 160m
+    - 80m
+    - 60m
+    - 40m
+    - 30m
+    - 20m
+    - 17m
+    - 15m
+    - 12m
+    - 10m
+    - 6m
 rf_power: '0.01-100'
 # TODO Filters, preamp, attenuator, rit, xit, ifshift, funcs, etc
 protocol_config:
     startup: 'K22;K31;AI2;'
-    info: {
-        get: 'IF;',
-        response: 'IF(?P<freq>\d{11})     (?P<offset>[\+-])(?P<offset_hz>\d{4})(?P<rit>[01])(?P<xit>[01]) 00(?P<tx>[01])(?P<mode>\d)(?P<vfo>[01])(?P<scan>[01])(?P<split>[01])(?P<band_change>[01])(?P<datamode>\d)1 ;',
-    }
-    vfo_0: {
-        get: 'FA;',
-        response: 'FA(?P<freq>\d{11});',
-        set: 'FA{freq:011d};',
-    }
-    vfo_1: {
-        get: 'FB;',
-        response: 'FB(?P<freq>\d{11});',
-        set: 'FB{freq:011d};',
-    }
-    rx_vfo: {
-        get: 'FR;',
-        response: 'FR(?P<index>[01]);',
-    }
-    tx_vfo: {
-        get: 'FT;',
-        response: 'FT(?P<index>[01]);',
-        set: 'FT{index:d};',
-    }
-    mode_0: {
-        get: 'MD;',
-        response: 'MD(?P<mode>\d);',
+    info:
+        get: 'IF;'
+        response: 'IF(?P<freq>\d{11})     (?P<offset>[\+-])(?P<offset_hz>\d{4})(?P<rit>[01])(?P<xit>[01]) 00(?P<tx>[01])(?P<mode>\d)(?P<vfo>[01])(?P<scan>[01])(?P<split>[01])(?P<band_change>[01])(?P<datamode>\d)1 ;'
+    vfo_0:
+        get: 'FA;'
+        response: 'FA(?P<freq>\d{11});'
+        set: 'FA{freq:011d};'
+    vfo_1:
+        get: 'FB;'
+        response: 'FB(?P<freq>\d{11});'
+        set: 'FB{freq:011d};'
+    rx_vfo:
+        get: 'FR;'
+        response: 'FR(?P<index>[01]);'
+    tx_vfo:
+        get: 'FT;'
+        response: 'FT(?P<index>[01]);'
+        set: 'FT{index:d};'
+    mode_0:
+        get: 'MD;'
+        response: 'MD(?P<mode>\d);'
         set: 'MD{mode:d};'
-    }
-    mode_1: {
-        get: 'MD$;',
-        response: 'MD\$(?P<mode>\d);',
+    mode_1:
+        get: 'MD$;'
+        response: 'MD\$(?P<mode>\d);'
         set: 'MD${mode:d};'
-    }
-    rx: {
-        set: 'RX;',
-    }
-    tx: {
-        set: 'TX;',
-    }
-    keyer_speed: {
-        get: 'KS;',
-        response: 'KS(?P<speed>\d+);',
-        set: 'KS{speed:03d};',
-        range: '8-50',
-    }
-    cw: {
-        mode: 'cat',
-        cancel: 'RX;',
-        length: 24,
-        response: 'KY(?P<full>[01]);',
-        send: 'KY {text};',
-    }
+    rx:
+        set: 'RX;'
+    tx:
+        set: 'TX;'
+    keyer_speed:
+        get: 'KS;'
+        response: 'KS(?P<speed>\d+);'
+        set: 'KS{speed:03d};'
+        range: '8-50'
+    cw:
+        mode: 'cat'
+        cancel: 'RX;'
+        length: 24
+        response: 'KY(?P<full>[01]);'
+        send: 'KY{text};'
